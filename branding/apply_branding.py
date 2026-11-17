@@ -12,6 +12,7 @@ Yang diubah (hanya tampilan, alur aplikasi tidak berubah):
 Skrip berhenti dengan error jika kode sumber tidak sesuai harapan, supaya tidak
 menghasilkan build yang diam-diam tidak ter-branding.
 """
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -84,6 +85,16 @@ edit(
               color: Theme.of(context).textTheme.bodySmall?.color),
         ).marginOnly(left: 8, right: 8, top: 2, bottom: 4),
       ),
+      Container(
+        height: 1.5,
+        margin: EdgeInsets.symmetric(horizontal: 24, vertical: 6),
+        decoration: BoxDecoration(
+            gradient: LinearGradient(colors: [
+          Colors.transparent,
+          Color(0xFFE2B66B),
+          Colors.transparent
+        ])),
+      ),
 """ % CREDIT,
     CREDIT,
 )
@@ -103,5 +114,81 @@ edit(
 """ % CREDIT,
     "Berbasis RustDesk (AGPL-3.0)",
 )
+
+# 4) Tema elegan: ivory-emas (terang) dan biru malam-emas champagne (gelap, default)
+#    Palet diambil dari logo: emas #FCC682 dan biru langit #83E8FA.
+LIB = ROOT / "flutter" / "lib"
+
+
+def swap_hex(old, new, expected):
+    """Ganti kode warna di semua file Dart agar konsisten di seluruh tampilan."""
+    pat = re.compile(re.escape(old), re.I)
+    total, pending = 0, []
+    for p in sorted(LIB.rglob("*.dart")):
+        text = p.read_text(encoding="utf-8")
+        n = len(pat.findall(text))
+        if n:
+            total += n
+            pending.append((p, pat.sub(new, text)))
+    if total == 0:
+        if any(re.search(re.escape(new), p.read_text(encoding="utf-8"), re.I)
+               for p in LIB.rglob("*.dart")):
+            print(f"[SKIP] warna {old} sudah diganti")
+            return
+        fail(f"warna {old} tidak ditemukan. Versi RustDesk mungkin berubah.")
+    if total != expected:
+        fail(f"warna {old} ditemukan {total}x (seharusnya {expected}x).")
+    for p, text in pending:
+        p.write_text(text, encoding="utf-8")
+    print(f"[OK] warna {old} -> {new} ({total}x)")
+
+
+swap_hex("0071FF", "9A6B1F", 4)   # aksen utama (biru -> emas antik)
+swap_hex("2C8CFF", "9A6B1F", 3)   # tombol dan panel About
+swap_hex("00B6F0", "1E9CC0", 1)   # warna angka ID (aqua dari logo)
+swap_hex("EFEFF2", "F4F0E8", 1)   # latar kartu mode terang (ivory)
+swap_hex("18191E", "0F1218", 2)   # latar mode gelap (biru malam)
+swap_hex("24252B", "1A1F29", 5)   # permukaan kartu/input mode gelap
+
+COMMON = "flutter/lib/common.dart"
+
+edit(COMMON,
+     "    scaffoldBackgroundColor: Colors.white,\n    dialogBackgroundColor: Colors.white,\n",
+     "    scaffoldBackgroundColor: Color(0xFFFBF8F2),\n    dialogBackgroundColor: Color(0xFFFBF8F2),\n",
+     "Color(0xFFFBF8F2)")
+edit(COMMON,
+     "    hoverColor: Color.fromARGB(255, 224, 224, 224),",
+     "    hoverColor: Color.fromARGB(255, 236, 229, 214),",
+     "Color.fromARGB(255, 236, 229, 214)")
+edit(COMMON,
+     "    colorScheme: ColorScheme.light(\n        primary: Colors.blue, secondary: accent, background: grayBg),",
+     "    colorScheme: ColorScheme.light(\n        primary: accent, secondary: accent, background: grayBg),",
+     "primary: accent, secondary: accent")
+edit(COMMON,
+     "    hoverColor: Color.fromARGB(255, 45, 46, 53),",
+     "    hoverColor: Color.fromARGB(255, 33, 38, 49),",
+     "Color.fromARGB(255, 33, 38, 49)")
+edit(COMMON,
+     "        fontWeight: FontWeight.bold,\n        color: accent80,",
+     "        fontWeight: FontWeight.bold,\n        color: Color(0xFFE2B66B),",
+     "color: Color(0xFFE2B66B),")
+edit(COMMON,
+     "    colorScheme: ColorScheme.dark(\n      primary: Colors.blue,",
+     "    colorScheme: ColorScheme.dark(\n      primary: Color(0xFFE2B66B),",
+     "primary: Color(0xFFE2B66B)")
+edit(COMMON,
+     "MaterialStatePropertyAll(Color(0xFF121212))",
+     "MaterialStatePropertyAll(Color(0xFF0B0E13))",
+     "Color(0xFF0B0E13)")
+
+# Default tampilan = gelap. Pilihan Terang / Gelap / Ikuti Sistem di Settings tetap berfungsi.
+edit(COMMON,
+     "get defaultOptionTheme => isCustomClient ? 'system' : '';",
+     "get defaultOptionTheme => 'system';",
+     "get defaultOptionTheme => 'system';")
+edit(COMMON,
+     '      case "dark":\n        return ThemeMode.dark;\n      default:\n        return ThemeMode.system;',
+     '      case "dark":\n        return ThemeMode.dark;\n      case "system":\n        return ThemeMode.system;\n      default:\n        return ThemeMode.dark;',
+     'case "system":')
 
 print("Branding selesai diterapkan.")
